@@ -1,0 +1,290 @@
+---
+title: "Introduction to statistics in R"
+runtime: shiny
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(shiny)
+library(ggplot2)
+library(lsr) #CohensD
+```
+
+Interactive plots to study the effect of parameter changes on test outcomes.
+
+Niels van Berkel, February 2019
+
+```{r, echo=FALSE}
+
+# Define UI for random distribution app ----
+ui <- fluidPage(
+
+  # App title ----
+  titlePanel("Normal distrubtion"),
+
+  # Sidebar layout with input and output definitions ----
+  sidebarLayout(
+
+    # Sidebar panel for inputs ----
+    sidebarPanel(
+
+      # Input: Select the random distribution type ----
+      # radioButtons("dist", "Distribution type:",
+      #              c("Normal" = "norm",
+      #                "Uniform" = "unif",
+      #                "Log-normal" = "lnorm",
+      #                "Exponential" = "exp")),
+
+      # br() element to introduce extra vertical spacing ----
+      # br(),
+
+      # Input: Slider for the number of observations to generate ----
+      sliderInput("n",
+                  "Number of observations:",
+                  value = 20,
+                  min = 1,
+                  max = 100),
+      sliderInput("sd",
+                  "Standard deviation:",
+                  value = 5,
+                  min = 1,
+                  max = 100)
+    ),
+
+    # Main panel for displaying outputs ----
+    mainPanel(
+
+      # Output: Tabset w/ plot, summary, and table ----
+      tabsetPanel(type = "tabs",
+                  tabPanel("Plot", plotOutput("plot")),
+                  tabPanel("Summary", verbatimTextOutput("summary")),
+                  tabPanel("Table", tableOutput("table")),
+                  tabPanel("Shapiro-Wilk", verbatimTextOutput("shapirowilk"))
+      )
+    )
+  )
+)
+
+# Define server logic for random distribution app ----
+server <- function(input, output) {
+
+  # Reactive expression to generate the requested distribution ----
+  # This is called whenever the inputs change. The output functions
+  # defined below then use the value computed from this expression
+  d <- reactive({
+    dist <- rnorm(input$n, 180, input$sd)
+  })
+
+  # Generate a plot of the data ----
+  # Also uses the inputs to build the plot label. Note that the
+  # dependencies on the inputs and the data reactive expression are
+  # both tracked, and all expressions are called in the sequence
+  # implied by the dependency graph.
+  output$plot <- renderPlot({
+    dist <- input$dist
+    n <- input$n
+
+    hist(d(),
+         main = paste("r", dist, "(", n, ")", sep = ""),
+         col = "#75AADB", border = "white")
+  })
+
+  # Generate a summary of the data ----
+  output$summary <- renderPrint({
+    summary(d())
+  })
+
+  # Generate an HTML table view of the data ----
+  output$table <- renderTable({
+    d()
+  })
+  
+  output$shapirowilk <- renderPrint({
+    # temp <- d()
+    shapiro.test(d())
+  })
+
+}
+
+# Create Shiny app ----
+shinyApp(ui, server)
+```
+
+```{r, echo=FALSE}
+
+# Define UI for random distribution app ----
+ui <- fluidPage(
+
+  # App title ----
+  titlePanel("T-test"),
+
+  # Sidebar layout with input and output definitions ----
+  sidebarLayout(
+
+    # Sidebar panel for inputs ----
+    sidebarPanel(
+      # Input: Slider for the number of observations to generate ----
+      sliderInput("n",
+                  "Number of observations / group:",
+                  value = 20,
+                  min = 1,
+                  max = 100),
+      numericInput("mediana",
+                   "Median value group A:",
+                   value = 180),
+      numericInput("medianb",
+                   "Median value group B:",
+                   value = 160)
+    ),
+
+    # Main panel for displaying outputs ----
+    mainPanel(
+
+      # Output: Tabset w/ plot, summary, and table ----
+      tabsetPanel(type = "tabs",
+                  tabPanel("Plot", plotOutput("plot")),
+                  tabPanel("T-test", verbatimTextOutput("ttest")),
+                  tabPanel("Effect size", verbatimTextOutput("effectsize"))
+      )
+    )
+  )
+)
+
+# Define server logic for random distribution app ----
+server <- function(input, output) {
+
+  # Reactive expression to generate the requested distribution ----
+  # This is called whenever the inputs change. The output functions
+  # defined below then use the value computed from this expression
+  dist <- reactive({
+    dist_a <- as.data.frame(rnorm(as.numeric(input$n), as.numeric(input$mediana), 5))
+    dist_b <- as.data.frame(rnorm(as.numeric(input$n), as.numeric(input$medianb), 5))
+
+    colnames(dist_a) <- c("dist")
+    colnames(dist_b) <- c("dist")
+    dist_a$group = "A"
+    dist_b$group = "B"
+
+    dist <- rbind(dist_a, dist_b)
+  })
+
+  output$plot <- renderPlot({
+    ggplot(dist(), aes(x = dist, fill = group)) +
+      geom_histogram(alpha = 0.75, position="identity") +
+      theme_minimal()
+  })
+  
+  output$ttest <- renderPrint({
+    temp <- dist()
+    t.test(temp$dist~temp$group)
+  })
+  
+  output$effectsize <- renderPrint({
+    temp <- dist()
+    cohensD(x = dist ~ group, data = temp)
+    # summary(test)
+  })
+}
+
+# Create Shiny app ----
+shinyApp(ui, server)
+```
+
+
+```{r, echo=FALSE}
+
+# Define UI for random distribution app ----
+ui <- fluidPage(
+
+  # App title ----
+  titlePanel("ANOVA"),
+
+  # Sidebar layout with input and output definitions ----
+  sidebarLayout(
+
+    # Sidebar panel for inputs ----
+    sidebarPanel(
+      # Input: Slider for the number of observations to generate ----
+      sliderInput("n",
+                  "Number of observations / group:",
+                  value = 20,
+                  min = 1,
+                  max = 100),
+      numericInput("mediana",
+                   "Median value group A:",
+                   value = 177),
+      numericInput("medianb",
+                   "Median value group B:",
+                   value = 175),
+      numericInput("medianc",
+                   "Median value group C:",
+                   value = 178),
+      numericInput("mediand",
+                   "Median value group D:",
+                   value = 120)
+    ),
+
+    # Main panel for displaying outputs ----
+    mainPanel(
+
+      # Output: Tabset w/ plot, summary, and table ----
+      tabsetPanel(type = "tabs",
+                  tabPanel("Plot", plotOutput("plot")),
+                  tabPanel("ANOVA", verbatimTextOutput("anova")),
+                  tabPanel("Posthoc", verbatimTextOutput("posthoc"))
+      )
+    )
+  )
+)
+
+# Define server logic for random distribution app ----
+server <- function(input, output) {
+
+  # Reactive expression to generate the requested distribution ----
+  # This is called whenever the inputs change. The output functions
+  # defined below then use the value computed from this expression
+  dist <- reactive({
+    dist_a <- as.data.frame(rnorm(as.numeric(input$n), as.numeric(input$mediana), 5))
+    dist_b <- as.data.frame(rnorm(as.numeric(input$n), as.numeric(input$medianb), 5))
+    dist_c <- as.data.frame(rnorm(as.numeric(input$n), as.numeric(input$medianc), 5))
+    dist_d <- as.data.frame(rnorm(as.numeric(input$n), as.numeric(input$mediand), 5))
+
+    colnames(dist_a) <- c("dist")
+    colnames(dist_b) <- c("dist")
+    colnames(dist_c) <- c("dist")
+    colnames(dist_d) <- c("dist")
+    dist_a$group = "A"
+    dist_b$group = "B"
+    dist_c$group = "C"
+    dist_d$group = "D"
+
+    dist <- rbind(dist_a, dist_b)
+    dist <- rbind(dist, dist_c)
+    dist <- rbind(dist, dist_d)
+  })
+
+  output$plot <- renderPlot({
+    ggplot(dist(), aes(x = dist, fill = group)) +
+      geom_histogram(alpha = 0.75, position="identity") +
+      theme_minimal()
+  })
+  
+  output$anova <- renderPrint({
+    temp <- dist()
+    results <- aov(dist~group, data = temp)
+    summary(results)
+  })
+  
+  output$posthoc <- renderPrint({
+    temp <- dist()
+    results <- aov(dist~group, data = temp)
+    TukeyHSD(results, ordered = TRUE)
+    # summary(test)
+  })
+}
+
+# Create Shiny app ----
+shinyApp(ui, server)
+```
+
